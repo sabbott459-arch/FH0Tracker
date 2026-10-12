@@ -26,11 +26,7 @@ create table if not exists public.fh_characters (
  revision bigint not null default 0,
  updated_at timestamptz not null default now()
 );
-do $ begin
- if not exists (select 1 from pg_constraint where conname = 'fh_access_character_fk' and conrelid = 'public.fh_access'::regclass) then
-  alter table public.fh_access add constraint fh_access_character_fk foreign key (character_id) references public.fh_characters(id) on delete cascade;
- end if;
-end $;
+-- Character FK will be installed in a later migration after auth is ready.
 create unique index if not exists fh_one_access_per_character on public.fh_access(character_id) where character_id is not null;
 create table if not exists public.fh_snapshots (
  id bigint generated always as identity primary key,
