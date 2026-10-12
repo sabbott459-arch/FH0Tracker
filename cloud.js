@@ -41,5 +41,5 @@ $('import').onchange=async e=>{let file=e.target.files?.[0];if(!file)return;try{
 $('refresh').onclick=async()=>{if(dirty&&!confirm('Unsaved edits may be lost. Reload from cloud?'))return;try{await load()}catch(e){msg(e.message,true)}};
 for(let i=1;i<=9;i++){let o=document.createElement('option');o.value=i;o.textContent='Level '+i;$('level').append(o)}
 window.addEventListener('online',()=>{if(dirty){queue=queue.then(saveCloud)}});
-(async()=>{const last=localStorage.getItem(CAMPAIGN_KEY);if(last)$('campaignCode').value=last.slice(-4).toUpperCase();const legacyToken=localStorage.getItem(KEY);localStorage.removeItem(KEY);screens('welcome');$('loginPin').value='';if(!last&&legacyToken){try{const previous=await rpc('fh_dashboard',{p_token:legacyToken});rememberCampaign(previous.code)}catch(e){/* Previous session may have expired; manual campaign entry still works. */}}msg('Enter your PIN to continue')})();
+(async()=>{const last=localStorage.getItem(CAMPAIGN_KEY);if(last)$('campaignCode').value=last.slice(-4).toUpperCase();const legacyToken=sessionStorage.getItem(KEY);localStorage.removeItem(KEY);screens('welcome');$('loginPin').value='';if(legacyToken){try{token=legacyToken;await load();return}catch(e){session('')}}msg('Enter your PIN to continue')})();
 })();
