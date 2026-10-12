@@ -1,0 +1,39 @@
+name: Import Frosthaven class artwork
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  import-icons:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download all 17 icons
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p assets/classes
+          declare -A icons=(
+            [banner-spear]=banner-spear [blinkblade]=blinkblade [boneshaper]=boneshaper
+            [deathwalker]=deathwalker [drifter]=drifter [geminate]=geminate
+            [astral]=infuser [coral]=crashing-tide [drill]=metal-mosaic
+            [fist]=frozen-fist [kelp]=deepwraith [meteor]=pyroclast
+            [prism]=hive [shackles]=pain-conduit [shards]=shattersong
+            [snowflake]=snowdancer [trap]=trapper
+          )
+          for id in "${!icons[@]}"; do
+            curl --fail --location --retry 3 --silent --show-error \
+              "https://raw.githubusercontent.com/any2cards/worldhaven/master/images/art/frosthaven/icons/characters/fh-${icons[$id]}-bw-icon.png" \
+              --output "assets/classes/$id.png"
+            test "$(stat -c%s "assets/classes/$id.png")" -gt 1000
+          done
+          test "$(find assets/classes -name '*.png' | wc -l)" -eq 17
+      - name: Commit local artwork
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/classes
+          if ! git diff --cached --quiet; then
+            git commit -m "Vendor Frosthaven class icons locally"
+            git push
+          fi
