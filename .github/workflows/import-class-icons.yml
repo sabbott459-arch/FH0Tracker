@@ -1,6 +1,9 @@
 name: Import Frosthaven class artwork
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'cloud.js'
 permissions:
   contents: write
 jobs:
