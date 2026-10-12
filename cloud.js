@@ -4,7 +4,7 @@ const $=id=>document.getElementById(id),show=(id,on=true)=>$(id).classList.toggl
 let pendingJoin=null,token='',dashboard=null,current=null,dirty=false,saving=false,saveTimer=0,queue=Promise.resolve(),activeRevision=0;
 const CLASSES=[["banner-spear","Banner Spear","high"],["blinkblade","Blinkblade","medium"],["boneshaper","Boneshaper","low"],["deathwalker","Deathwalker","low"],["drifter","Drifter","high"],["geminate","Geminate","medium"],["astral","Astral","medium"],["coral","Coral","medium"],["drill","Drill","medium"],["fist","Fist (Frozen Fist)","high"],["kelp","Kelp","medium"],["meteor","Meteor","medium"],["prism","Prism","medium"],["shackles","Shackles","medium"],["shards","Shards","medium"],["snowflake","Snowflake","medium"],["trap","Trap","medium"]];
 const CLASS_ICON_FILES={"banner-spear":"banner-spear","blinkblade":"blinkblade","boneshaper":"boneshaper","deathwalker":"deathwalker","drifter":"drifter","geminate":"geminate","astral":"infuser","coral":"crashing-tide","drill":"metal-mosaic","fist":"frozen-fist","kelp":"deepwraith","meteor":"pyroclast","prism":"hive","shackles":"pain-conduit","shards":"shattersong","snowflake":"snowdancer","trap":"trapper"};
-const classIcon=id=>'https://raw.githubusercontent.com/any2cards/worldhaven/master/images/art/frosthaven/icons/characters/fh-'+(CLASS_ICON_FILES[id]||'frozen-fist')+'-bw-icon.png';
+const classIcon=id=>'./assets/classes/'+(Object.hasOwn(CLASS_ICON_FILES,id)?id:'fist')+'.png';
 const classInfo=id=>CLASSES.find(c=>c[0]===id)||CLASSES.find(c=>c[0]==='fist');
 const HP_TRACKS={low:[6,7,8,9,10,11,12,13,14],medium:[8,9,11,12,14,15,17,18,20],high:[10,12,14,16,18,20,22,24,26]};
 const CLASS_DETAILS={
