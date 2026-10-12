@@ -24,18 +24,18 @@ revoke all on public.fh_sessions, public.fh_login_attempts from public, anon, au
 create or replace function public.fh_actor(p_token text)
 returns table(campaign_id uuid, role text, character_id uuid, access_id uuid)
 language sql stable security definer set search_path = ''
-as $$
+as $fh$
  select a.campaign_id,a.role,a.character_id,a.id
  from public.fh_sessions s join public.fh_access a on a.id=s.access_id
  where s.token_hash=encode(extensions.digest(p_token,'sha256'),'hex')
    and s.expires_at>now() and length(p_token)=64
  limit 1
-$$;
+$fh$;
 revoke all on function public.fh_actor(text) from public,anon,authenticated;
 
 create or replace function public.fh_create_campaign(p_name text,p_manager_pin text,p_character_name text,p_character_pin text,p_data jsonb default '{}'::jsonb)
 returns jsonb language plpgsql security definer set search_path = ''
-as $$
+as $fh$
 declare v_campaign uuid;v_code text;v_character uuid;v_access uuid;v_token text;v_try int;
 begin
  if p_manager_pin !~ '^[0-9]{4}$' or p_character_pin !~ '^[0-9]{4}$' or p_manager_pin=p_character_pin then raise exception 'Choose two different 4-digit PINs';end if;
@@ -56,30 +56,30 @@ begin
  insert into public.fh_sessions(access_id,token_hash) values(v_access,encode(extensions.digest(v_token,'sha256'),'hex'));
  return jsonb_build_object('code',v_code,'token',v_token,'role','manager','character_id',v_character);
 end
-$$;
+$fh$;
 
 create or replace function public.fh_login(p_code text,p_pin text)
 returns jsonb language plpgsql security definer set search_path = ''
-as $$
+as $fh$
 declare v_access record;v_token text;v_count int;
 begin
  if p_code !~ '^FROST-[A-Z0-9]{8}$' or p_pin !~ '^[0-9]{4}$' then raise exception 'Invalid campaign code or PIN';end if;
  select count(*) into v_count from public.fh_login_attempts where campaign_code=p_code and attempted_at>now()-interval '10 minutes';
- if v_count>=30 then raise exception 'Too many attempts; try again later';end if;
+ if v_count>=30 then return jsonb_build_object('error','Too many attempts; try again later');end if;
  insert into public.fh_login_attempts(campaign_code) values(p_code);
  select a.id,a.role,a.character_id into v_access
  from public.fh_access a join public.fh_campaigns c on c.id=a.campaign_id
  where c.code=p_code and a.pin_hash=extensions.crypt(p_pin,a.pin_hash) limit 1;
- if not found then raise exception 'Invalid campaign code or PIN';end if;
+ if not found then return jsonb_build_object('error','Invalid campaign code or PIN');end if;
  v_token:=encode(extensions.gen_random_bytes(32),'hex');
  insert into public.fh_sessions(access_id,token_hash) values(v_access,encode(extensions.digest(v_token,'sha256'),'hex'));
  return jsonb_build_object('token',v_token,'role',v_access.role,'character_id',v_access.character_id);
 end
-$$;
+$fh$;
 
 create or replace function public.fh_dashboard(p_token text)
 returns jsonb language plpgsql security definer set search_path = ''
-as $$
+as $fh$
 declare v_actor record;v_code text;v_name text;v_chars jsonb;
 begin
  select * into v_actor from public.fh_actor(p_token);
@@ -89,11 +89,11 @@ begin
  from public.fh_characters where campaign_id=v_actor.campaign_id and (v_actor.role='manager' or id=v_actor.character_id);
  return jsonb_build_object('code',v_code,'name',v_name,'role',v_actor.role,'characters',v_chars);
 end
-$$;
+$fh$;
 
 create or replace function public.fh_save_character(p_token text,p_character_id uuid,p_revision bigint,p_data jsonb)
 returns jsonb language plpgsql security definer set search_path = ''
-as $$
+as $fh$
 declare v_actor record;v_revision bigint;v_name text;
 begin
  select * into v_actor from public.fh_actor(p_token);
@@ -109,11 +109,11 @@ begin
  update public.fh_characters set data=p_data,name=v_name,revision=revision+1,updated_at=now() where id=p_character_id;
  return jsonb_build_object('revision',v_revision+1);
 end
-$$;
+$fh$;
 
 create or replace function public.fh_add_character(p_token text,p_name text,p_pin text,p_data jsonb default '{}'::jsonb)
 returns jsonb language plpgsql security definer set search_path = ''
-as $$
+as $fh$
 declare v_actor record;v_id uuid;v_n int;
 begin
  select * into v_actor from public.fh_actor(p_token);
@@ -127,13 +127,16 @@ begin
  insert into public.fh_access(campaign_id,role,pin_hash,character_id) values(v_actor.campaign_id,'character',extensions.crypt(p_pin,extensions.gen_salt('bf',10)),v_id);
  return jsonb_build_object('character_id',v_id);
 end
-$$;
+$fh$;
 
 create or replace function public.fh_logout(p_token text)
-returns boolean language sql security definer set search_path = ''
-as $$
- delete from public.fh_sessions where token_hash=encode(extensions.digest(p_token,'sha256'),'hex') returning true
-$$;
+returns boolean language plpgsql security definer set search_path = ''
+as $fh$
+begin
+ delete from public.fh_sessions where token_hash=encode(extensions.digest(p_token,'sha256'),'hex');
+ return found;
+end
+$fh$;
 
 -- Never expose the internal actor function. Only grant the public RPC entry points.
 revoke all on function public.fh_create_campaign(text,text,text,text,jsonb) from public;
