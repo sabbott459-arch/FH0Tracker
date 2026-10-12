@@ -47,5 +47,6 @@ jobs:
           git add assets/classes assets/symbols
           if ! git diff --cached --quiet; then
             git commit -m "Vendor Frosthaven class icons locally"
-            git push
+            git pull --rebase origin main
+            git push origin HEAD:main
           fi
