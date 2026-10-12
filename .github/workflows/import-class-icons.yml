@@ -48,11 +48,20 @@ jobs:
             test "$(stat -c%s "assets/perks/$id.png")" -gt 1000
           done
           test "$(find assets/perks -name '*.png' | wc -l)" -eq 17
+      - name: Download Frosthaven UI symbols
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p assets/symbols
+          for entry in condition/poison condition/wound condition/stun condition/disarm condition/muddle condition/immobilize condition/brittle condition/strengthen condition/invisible condition/ward condition/regenerate condition/curse condition/bless element/air element/earth element/fire element/ice element/light element/dark attackmodifier/rolling action/heal action/shield action/pierce action/push action/pull action/target action/range; do
+            name="${entry//\//-}"
+            curl --fail --location --retry 3 --silent --show-error "https://raw.githubusercontent.com/Lurkars/gloomhavensecretariat/main/src/assets/images/${entry}.svg" --output "assets/symbols/${name}.svg"
+          done
       - name: Commit local artwork
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add assets/classes assets/perks
+          git add assets/classes assets/perks assets/symbols
           if ! git diff --cached --quiet; then
             git commit -m "Vendor Frosthaven class icons locally"
             git push
