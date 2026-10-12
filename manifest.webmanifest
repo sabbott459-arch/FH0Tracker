@@ -1,8 +1,8 @@
 {
   "name": "FH0Tracker — Frosthaven Character Tracker",
   "short_name": "FH0Tracker",
-  "description": "Offline Frosthaven character tracking",
-  "start_url": "./",
+  "description": "Frosthaven shared campaign and character tracker",
+  "start_url": "./cloud.html",
   "scope": "./",
   "display": "standalone",
   "background_color": "#101820",
