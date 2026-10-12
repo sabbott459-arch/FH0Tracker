@@ -28,11 +28,31 @@ jobs:
             test "$(stat -c%s "assets/classes/$id.png")" -gt 1000
           done
           test "$(find assets/classes -name '*.png' | wc -l)" -eq 17
+      - name: Download all 17 perk sheets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p assets/perks
+          declare -A sheets=(
+            [banner-spear]=banner-spear [blinkblade]=blinkblade [boneshaper]=boneshaper
+            [deathwalker]=deathwalker [drifter]=drifter [geminate]=geminate
+            [astral]=infuser [coral]=crashing-tide [drill]=metal-mosaic
+            [fist]=frozen-fist [kelp]=deepwraith [meteor]=pyroclast
+            [prism]=hive [shackles]=pain-conduit [shards]=shattersong
+            [snowflake]=snowdancer [trap]=trapper
+          )
+          for id in "${!sheets[@]}"; do
+            curl --fail --location --retry 3 --silent --show-error \
+              "https://raw.githubusercontent.com/any2cards/worldhaven/master/images/character-perks/frosthaven/fh-${sheets[$id]}-perks.png" \
+              --output "assets/perks/$id.png"
+            test "$(stat -c%s "assets/perks/$id.png")" -gt 1000
+          done
+          test "$(find assets/perks -name '*.png' | wc -l)" -eq 17
       - name: Commit local artwork
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add assets/classes
+          git add assets/classes assets/perks
           if ! git diff --cached --quiet; then
             git commit -m "Vendor Frosthaven class icons locally"
             git push
