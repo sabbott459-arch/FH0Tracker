@@ -1,5 +1,5 @@
 (()=>{'use strict';
-const C=window.FH_CLOUD_CONFIG,API=C.url+'/rest/v1/rpc/',RES=['Gold','Lumber','Metal','Hide','Arrowvine','Axenut','Corpsecap','Flamefruit','Rockroot','Snowthistle'],XP=[0,45,95,150,210,275,345,420,500],KEY='fh0tracker.cloud.session.v1',CAMPAIGN_KEY='fh0tracker.cloud.lastCampaign.v1';
+const C=window.FH_CLOUD_CONFIG,API=C.url+'/rest/v1/rpc/',RES=['Gold','Lumber','Metal','Hide','Arrowvine','Axenut','Corpsecap','Flamefruit','Rockroot','Snowthistle'],XP=[0,45,95,150,210,275,345,420,500],KEY='fh0tracker.cloud.session.v1',CAMPAIGN_KEY='fh0tracker.cloud.lastCampaign.v1',ACTIVITY_KEY='fh0tracker.cloud.lastActivity.v1',IDLE_MS=240*60*1000;
 const $=id=>document.getElementById(id),show=(id,on=true)=>$(id).classList.toggle('hidden',!on);
 let pendingJoin=null,token='',dashboard=null,current=null,dirty=false,saving=false,saveTimer=0,queue=Promise.resolve(),activeRevision=0;
 const defaults=()=>({version:1,name:'Frozen Fist',classId:'fist',level:1,hp:10,maxHpOverride:null,scenarioXp:0,campaignXp:0,checks:0,resources:Object.fromEntries(RES.map(k=>[k,0])),masteries:[{text:'Mastery 1',done:false},{text:'Mastery 2',done:false}],perks:[]});
@@ -10,7 +10,16 @@ async function rpc(name,data){let r=await fetch(API+name,{method:'POST',headers:
 const pin=id=>{let s=$(id).value.trim();if(!/^\d{4}$/.test(s))throw Error('Enter a 4-digit PIN');return s};
 function screens(which){show('welcome',which==='welcome');show('create',which==='create');show('newPlayer',which==='newPlayer');show('workspace',which==='workspace')}
 function rememberCampaign(code){if(code){localStorage.setItem(CAMPAIGN_KEY,code.slice(-4).toUpperCase());$('campaignCode').value=code.slice(-4).toUpperCase()}}
-function session(t){token=t;if(t)sessionStorage.setItem(KEY,t);else sessionStorage.removeItem(KEY);localStorage.removeItem(KEY)}
+function session(t){token=t;if(t){sessionStorage.setItem(KEY,t);sessionStorage.setItem(ACTIVITY_KEY,String(Date.now()))}else{sessionStorage.removeItem(KEY);sessionStorage.removeItem(ACTIVITY_KEY)}localStorage.removeItem(KEY)}
+let lastActivityWrite=0,expiring=false;
+function lastActivity(){const v=Number(sessionStorage.getItem(ACTIVITY_KEY));return Number.isFinite(v)&&v>0?v:0}
+function expired(){return !!token&&(!lastActivity()||Date.now()-lastActivity()>=IDLE_MS)}
+function activity(){if(!token||expiring)return;if(expired()){void expireSession();return}if(Date.now()-lastActivityWrite>10000){lastActivityWrite=Date.now();sessionStorage.setItem(ACTIVITY_KEY,String(lastActivityWrite))}}
+async function expireSession(){if(!token||expiring)return;expiring=true;clearTimeout(saveTimer);try{await flush()}catch(e){expiring=false;msg('Cloud save incomplete. Reconnect and save before signing out.',true);return}const old=token;session('');current=null;dashboard=null;pendingJoin=null;screens('welcome');$('loginPin').value='';msg('Session timed out after 4 hours. Enter your PIN again.');expiring=false;void rpc('fh_logout',{p_token:old}).catch(()=>{})}
+['pointerdown','keydown','input','change'].forEach(event=>document.addEventListener(event,activity,{passive:true}));
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&token){if(expired())void expireSession();else activity()}});
+window.addEventListener('focus',()=>{if(token){if(expired())void expireSession();else activity()}});
+setInterval(()=>{if(token&&expired())void expireSession()},60000);
 async function load(){if(!token)return screens('welcome');dashboard=await rpc('fh_dashboard',{p_token:token});rememberCampaign(dashboard.code);screens('workspace');$('campaignTitle').textContent=dashboard.name;$('campaignInfo').textContent='Campaign code: '+dashboard.code;$('roleTitle').textContent=dashboard.role==='manager'?'Campaign manager':'Your character';show('manager',dashboard.role==='manager');if(dashboard.role==='manager'){show('tracker',false);renderManager()}else{let ch=dashboard.characters[0];if(!ch)throw Error('Character not found');openCharacter(ch)}msg('Cloud connected')}
 function renderManager(){let root=$('characters');root.replaceChildren();for(let ch of dashboard.characters){let b=document.createElement('button');b.textContent=ch.name+' · Level '+(ch.data?.level||1);b.onclick=()=>openCharacter(ch);root.append(b)}$('addCharacter').disabled=dashboard.characters.length>=4}
 function navigate(view){for(let id of ['combat','supplies','perks','more'])show('view-'+id,id===view);document.querySelectorAll('[data-view]').forEach(b=>{b.classList.toggle('active',b.dataset.view===view);b.setAttribute('aria-current',b.dataset.view===view?'page':'false')});$('screenHeading').textContent=({combat:'Combat',supplies:'Supplies',perks:'Perks & Masteries',more:'Character & Backup'})[view];$('screenDescription').textContent=({combat:'Health and experience',supplies:'Gold and crafting resources',perks:'Progress and accomplishments',more:'Settings, backup and cloud sync'})[view];window.scrollTo({top:0,behavior:'instant'})}
@@ -41,5 +50,5 @@ $('import').onchange=async e=>{let file=e.target.files?.[0];if(!file)return;try{
 $('refresh').onclick=async()=>{if(dirty&&!confirm('Unsaved edits may be lost. Reload from cloud?'))return;try{await load()}catch(e){msg(e.message,true)}};
 for(let i=1;i<=9;i++){let o=document.createElement('option');o.value=i;o.textContent='Level '+i;$('level').append(o)}
 window.addEventListener('online',()=>{if(dirty){queue=queue.then(saveCloud)}});
-(async()=>{const last=localStorage.getItem(CAMPAIGN_KEY);if(last)$('campaignCode').value=last.slice(-4).toUpperCase();const legacyToken=sessionStorage.getItem(KEY);localStorage.removeItem(KEY);screens('welcome');$('loginPin').value='';if(legacyToken){try{token=legacyToken;await load();return}catch(e){session('')}}msg('Enter your PIN to continue')})();
+(async()=>{const last=localStorage.getItem(CAMPAIGN_KEY);if(last)$('campaignCode').value=last.slice(-4).toUpperCase();const legacyToken=sessionStorage.getItem(KEY);localStorage.removeItem(KEY);screens('welcome');$('loginPin').value='';if(legacyToken){token=legacyToken;if(expired()){session('');msg('Session timed out after 4 hours. Enter your PIN again.')}else{try{await load();return}catch(e){session('')}}}msg('Enter your PIN to continue')})();
 })();
