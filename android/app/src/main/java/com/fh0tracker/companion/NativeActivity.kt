@@ -387,7 +387,7 @@ class NativeActivity:ComponentActivity(){
                 repeat(perk.optInt("count",1).coerceAtLeast(1)){descriptions.add(idx++ to label)}
             }
         }
-        val perPage=if(perkSection=="masteries")2 else 3
+        val perPage=2
         val pages=((descriptions.size+perPage-1)/perPage).coerceAtLeast(1)
         val page=perkPage.coerceIn(0,pages-1)
         Column(Modifier.fillMaxSize(),verticalArrangement=Arrangement.SpaceBetween){
