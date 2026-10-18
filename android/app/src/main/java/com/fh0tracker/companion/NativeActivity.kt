@@ -352,7 +352,7 @@ class NativeActivity:ComponentActivity(){
             Text("Campaign: $campaign")
             HorizontalDivider(color=Color.DarkGray)
             Text("Cloud sync: $status")
-            Button(onClick={refresh},modifier=Modifier.fillMaxWidth()){Text("Refresh character from cloud")}
+            Button(onClick={::refresh},modifier=Modifier.fillMaxWidth()){Text("Refresh character from cloud")}
             Text("Native Android preview · No WebView",color=Color.LightGray,fontSize=12.sp)
             OutlinedButton(onClick=signOut,modifier=Modifier.fillMaxWidth()){Text("Sign out")}
         }
