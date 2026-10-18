@@ -12,7 +12,7 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-import android.widget.Button;
+import android.webkit.JavascriptInterface;
 import android.widget.LinearLayout;
 import android.widget.Toast;
 import org.json.JSONArray;
@@ -47,21 +47,20 @@ public class MainActivity extends Activity {
   LinearLayout root = new LinearLayout(this);
   root.setOrientation(LinearLayout.VERTICAL);
   root.setBackgroundColor(0xff101820);
-  Button update = new Button(this);
-  update.setText("Check for app update");
-  update.setAllCaps(false);
-  update.setOnClickListener(v -> checkUpdate());
-  root.addView(update, new LinearLayout.LayoutParams(-1, -2));
   web = new WebView(this);
   web.setBackgroundColor(0xff101820);
   web.getSettings().setJavaScriptEnabled(true);
   web.getSettings().setDomStorageEnabled(true);
   web.setWebViewClient(new WebViewClient());
+  web.addJavascriptInterface(new UpdateBridge(), "FHAppUpdate");
   root.addView(web,new LinearLayout.LayoutParams(-1,0,1));
   setContentView(root);
   if (Build.VERSION.SDK_INT >= 33) registerReceiver(downloaded,new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE),Context.RECEIVER_NOT_EXPORTED);
   else registerReceiver(downloaded,new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE));
   web.loadUrl("https://sabbott459-arch.github.io/FH0Tracker/cloud.html");
+ }
+ public class UpdateBridge {
+  @JavascriptInterface public void check() { runOnUiThread(() -> checkUpdate()); }
  }
  private void checkUpdate() {
   toast("Checking GitHub releases...");
