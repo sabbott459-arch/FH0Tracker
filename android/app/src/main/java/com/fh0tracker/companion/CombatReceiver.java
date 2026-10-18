@@ -1,6 +1,7 @@
 package com.fh0tracker.companion;
 
 import android.app.Notification;
+import android.widget.RemoteViews;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
@@ -30,7 +31,7 @@ public class CombatReceiver extends BroadcastReceiver {
    channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
    manager.createNotificationChannel(channel);
   }
-  Intent launch=new Intent(context,MainActivity.class);
+  Intent launch=new Intent(context,NativeActivity.class);
   PendingIntent open=PendingIntent.getActivity(context,0,launch,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
   Notification.Builder n=new Notification.Builder(context,CHANNEL)
    .setSmallIcon(android.R.drawable.ic_menu_edit)
@@ -42,12 +43,20 @@ public class CombatReceiver extends BroadcastReceiver {
    .setCategory(Notification.CATEGORY_STATUS)
    .setOngoing(true)
    .setShowWhen(false);
+  RemoteViews expanded=new RemoteViews(context.getPackageName(),R.layout.notification_combat);
+  expanded.setTextViewText(R.id.combat_title,"FH0Tracker · "+name);
+  expanded.setTextViewText(R.id.hp_value,String.valueOf(hp));
+  expanded.setTextViewText(R.id.xp_value,String.valueOf(xp));
+  int[] controls={R.id.hp_down,R.id.hp_up,R.id.xp_down,R.id.xp_up};
   String[] labels={"HP −","HP +","XP −","XP +"};
   for(int i=0;i<4;i++) {
    Intent action=new Intent(context,CombatReceiver.class).setAction("com.fh0tracker.companion.ADJUST").putExtra("index",i);
    PendingIntent pending=PendingIntent.getBroadcast(context,100+i,action,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
+   expanded.setOnClickPendingIntent(controls[i],pending);
    n.addAction(android.R.drawable.ic_menu_edit,labels[i],pending);
   }
+  n.setCustomBigContentView(expanded);
+  n.setStyle(new Notification.DecoratedCustomViewStyle());
   manager.notify(77,n.build());
  }
  @Override public void onReceive(Context context,Intent intent) {
