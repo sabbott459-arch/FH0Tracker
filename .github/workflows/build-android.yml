@@ -27,6 +27,13 @@ jobs:
         with:
           path: ~/.android/debug.keystore
           key: fh0tracker-debug-signing-key-v1
+      - name: Ensure stable debug signing key exists
+        run: |
+          mkdir -p "$HOME/.android"
+          if [ ! -f "$HOME/.android/debug.keystore" ]; then
+            keytool -genkeypair -keystore "$HOME/.android/debug.keystore" -alias androiddebugkey -storepass android -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=FH0Tracker Android Debug,O=FH0Tracker,C=US" -noprompt
+          fi
+          keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey -v | grep SHA256
       - name: Build debug APK
         working-directory: android
         run: gradle :app:assembleDebug --no-daemon
