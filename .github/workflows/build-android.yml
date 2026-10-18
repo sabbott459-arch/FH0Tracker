@@ -22,17 +22,18 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.7'
-      - name: Restore persistent debug signing key
-        uses: actions/cache@v4
-        with:
-          path: ~/.android/debug.keystore
-          key: fh0tracker-debug-signing-key-v1
-      - name: Ensure stable debug signing key exists
+      # One permanent signing key stored as an encrypted repository secret.
+      # Never generate a new key on a GitHub-hosted runner.
+      - name: Restore fixed Android signing key
+        env:
+          FH0_SIGNING_KEYSTORE_B64: ${{ secrets.FH0_SIGNING_KEYSTORE_B64 }}
         run: |
-          mkdir -p "$HOME/.android"
-          if [ ! -f "$HOME/.android/debug.keystore" ]; then
-            keytool -genkeypair -keystore "$HOME/.android/debug.keystore" -alias androiddebugkey -storepass android -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=FH0Tracker Android Debug,O=FH0Tracker,C=US" -noprompt
+          if [ -z "$FH0_SIGNING_KEYSTORE_B64" ]; then
+            echo "::error::Missing FH0_SIGNING_KEYSTORE_B64 GitHub Actions secret. See android/SIGNING.md."
+            exit 1
           fi
+          mkdir -p "$HOME/.android"
+          printf '%s' "$FH0_SIGNING_KEYSTORE_B64" | base64 --decode > "$HOME/.android/debug.keystore"
           keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey -v | grep SHA256
       - name: Build debug APK
         working-directory: android
