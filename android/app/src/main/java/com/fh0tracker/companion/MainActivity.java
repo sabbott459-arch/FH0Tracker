@@ -77,25 +77,40 @@ public class MainActivity extends Activity {
     try(InputStream in=connection.getInputStream()) { byte[] buf=new byte[8192];int n;while((n=in.read(buf))!=-1)out.write(buf,0,n); }
     JSONArray releases=new JSONArray(out.toString("UTF-8"));
     int installed=getPackageManager().getPackageInfo(getPackageName(),0).versionCode;
+    int latest = installed;
+    String latestUrl = null;
     for(int i=0;i<releases.length();i++) {
      JSONObject release=releases.getJSONObject(i);
      String tag=release.optString("tag_name","");
      if(!tag.startsWith("android-build-"))continue;
      int remote;
      try {remote=Integer.parseInt(tag.substring("android-build-".length()));}catch(Exception ignored){continue;}
-     if(remote<=installed) {toast("You're already on the latest Android build.");return;}
+     if(remote<=latest)continue;
      JSONArray assets=release.optJSONArray("assets");
      if(assets==null)continue;
-     for(int j=0;j<assets.length();j++){
+     for(int j=0;j<assets.length();j++) {
       JSONObject asset=assets.getJSONObject(j);
-      if(asset.optString("name","").endsWith(".apk")){
-       String url=asset.getString("browser_download_url");
-       runOnUiThread(() -> downloadApk(url));
-       return;
+      if(asset.optString("name","").endsWith(".apk")) {
+       latest=remote;
+       latestUrl=asset.getString("browser_download_url");
+       break;
       }
      }
     }
-    toast("No newer APK found.");
+    if(latestUrl==null) {
+     toast("You're up to date (build "+installed+").");
+    } else {
+     final String url=latestUrl;
+     final int newest=latest;
+     runOnUiThread(() -> {
+      new android.app.AlertDialog.Builder(this)
+       .setTitle("FH0Tracker update available")
+       .setMessage("Installed build: "+installed+"\\nNew build: "+newest+"\\n\\nDownload and install now?")
+       .setNegativeButton("Not now",null)
+       .setPositiveButton("Update", (dialog,which) -> downloadApk(url))
+       .show();
+     });
+    }
    }catch(Exception e){toast("Update check failed: "+e.getMessage());}
    finally{if(connection!=null)connection.disconnect();}
   }).start();
@@ -107,7 +122,7 @@ public class MainActivity extends Activity {
    request.setDescription("Download and install the latest Android APK");
    request.setMimeType("application/vnd.android.package-archive");
    request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
-   request.setDestinationInExternalFilesDir(this,Environment.DIRECTORY_DOWNLOADS,"FH0Tracker-update.apk");
+   request.setDestinationInExternalFilesDir(this,Environment.DIRECTORY_DOWNLOADS,"FH0Tracker-update-"+System.currentTimeMillis()+".apk");
    pendingDownload=((DownloadManager)getSystemService(DOWNLOAD_SERVICE)).enqueue(request);
    toast("Downloading update. Android will ask permission before installation.");
   }catch(Exception e){toast("Cannot download update: "+e.getMessage());}
