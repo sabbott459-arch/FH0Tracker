@@ -58,6 +58,7 @@ const fhPageState={supplies:0,perks:0,more:0};
 function fhPager(view,count,renderPage){
  const root=$('view-'+view);let nav=root.querySelector('.fh-pages');
  if(!nav){nav=document.createElement('div');nav.className='fh-pages';const prev=document.createElement('button'),label=document.createElement('span'),next=document.createElement('button');prev.textContent='‹ Back';next.textContent='Next ›';prev.onclick=()=>{fhPageState[view]=Math.max(0,fhPageState[view]-1);renderPage()};next.onclick=()=>{fhPageState[view]=Math.min(count-1,fhPageState[view]+1);renderPage()};nav.append(prev,label,next);root.append(nav)}
+ nav.children[0].onclick=()=>{fhPageState[view]=Math.max(0,fhPageState[view]-1);renderPage()};nav.children[2].onclick=()=>{fhPageState[view]=Math.min(count-1,fhPageState[view]+1);renderPage()};
  const page=Math.max(0,Math.min(count-1,fhPageState[view]));fhPageState[view]=page;
  nav.classList.toggle('hidden',count<=1);
  nav.children[0].disabled=page===0;nav.children[1].textContent=(page+1)+' / '+count;nav.children[2].disabled=page>=count-1;
