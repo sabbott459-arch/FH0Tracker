@@ -63,7 +63,7 @@ public class MainActivity extends Activity {
   setContentView(root);
   if (Build.VERSION.SDK_INT >= 33) registerReceiver(downloaded,new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE),Context.RECEIVER_NOT_EXPORTED);
   else registerReceiver(downloaded,new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE));
-  if(Build.VERSION.SDK_INT>=26){NotificationManager nm=(NotificationManager)getSystemService(NOTIFICATION_SERVICE);nm.createNotificationChannel(new NotificationChannel("combat","Frosthaven combat",NotificationManager.IMPORTANCE_LOW));}
+  if(Build.VERSION.SDK_INT>=26){NotificationManager nm=(NotificationManager)getSystemService(NOTIFICATION_SERVICE);NotificationChannel channel=new NotificationChannel("combat_v2","Frosthaven combat tracker",NotificationManager.IMPORTANCE_DEFAULT);channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);nm.createNotificationChannel(channel);}
   if(Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},42);
   web.loadUrl("https://sabbott459-arch.github.io/FH0Tracker/cloud.html");
  }
@@ -76,10 +76,14 @@ public class MainActivity extends Activity {
   if(Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)return;
   Intent open=new Intent(this,MainActivity.class);
   PendingIntent pending=PendingIntent.getActivity(this,0,open,PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);
-  Notification notification=new Notification.Builder(this,"combat")
+  Notification notification=new Notification.Builder(this,"combat_v2")
    .setSmallIcon(android.R.drawable.ic_menu_info_details)
    .setContentTitle("FH0Tracker · "+name)
    .setContentText("HP "+hp+"  ·  Scenario XP "+xp)
+   .setStyle(new Notification.BigTextStyle().bigText("HP: "+hp+"     Scenario XP: "+xp))
+   .setCategory(Notification.CATEGORY_STATUS)
+   .setShowWhen(false)
+   .setPriority(Notification.PRIORITY_DEFAULT)
    .setContentIntent(pending)
    .setVisibility(Notification.VISIBILITY_PUBLIC)
    .setOngoing(true)
