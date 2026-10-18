@@ -23,12 +23,14 @@ import java.io.ByteArrayOutputStream;
 /** Notification action receiver; serializes cloud writes to avoid revision collisions. */
 public class CombatReceiver extends BroadcastReceiver {
  private static final Object MUTEX=new Object();
- private static final String CHANNEL="combat_v3";
+ private static final String CHANNEL="combat_silent_v4";
  static void display(Context context,String name,int hp,int xp) {
   NotificationManager manager=(NotificationManager)context.getSystemService(Context.NOTIFICATION_SERVICE);
   if(Build.VERSION.SDK_INT>=26) {
-   NotificationChannel channel=new NotificationChannel(CHANNEL,"FH0Tracker combat controls",NotificationManager.IMPORTANCE_DEFAULT);
+   NotificationChannel channel=new NotificationChannel(CHANNEL,"FH0Tracker combat controls",NotificationManager.IMPORTANCE_LOW);
    channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+   channel.enableVibration(false);
+   channel.setSound(null,null);
    manager.createNotificationChannel(channel);
   }
   Intent launch=new Intent(context,NativeActivity.class);
@@ -42,7 +44,9 @@ public class CombatReceiver extends BroadcastReceiver {
    .setVisibility(Notification.VISIBILITY_PUBLIC)
    .setCategory(Notification.CATEGORY_STATUS)
    .setOngoing(true)
-   .setShowWhen(false);
+   .setShowWhen(false)
+   .setOnlyAlertOnce(true)
+   .setSilent(true);
   RemoteViews expanded=new RemoteViews(context.getPackageName(),R.layout.notification_combat);
   expanded.setTextViewText(R.id.combat_title,"FH0Tracker · "+name);
   expanded.setTextViewText(R.id.hp_value,String.valueOf(hp));
