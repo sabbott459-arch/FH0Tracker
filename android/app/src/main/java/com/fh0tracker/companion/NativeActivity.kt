@@ -172,6 +172,25 @@ class NativeActivity:ComponentActivity(){
             runOnUiThread{pendingWrites--;if(pendingWrites==0)refresh();status="Saved to cloud"}
         }
     }
+    private fun toggleChecklist(kind:String,index:Int){
+        val list=data.optJSONArray(kind)?:return
+        if(index !in 0 until list.length())return
+        val old=list.getJSONObject(index).optBoolean("done")
+        val copy=JSONObject(data.toString())
+        copy.getJSONArray(kind).getJSONObject(index).put("done",!old)
+        data=copy;pendingWrites++
+        work {
+            val dashboard=rpc("fh_dashboard",JSONObject().put("p_token",token))
+            val ch=dashboard.getJSONArray("characters").getJSONObject(0)
+            val payload=ch.getJSONObject("data")
+            val rows=payload.optJSONArray(kind)?:return@work
+            if(index>=rows.length())return@work
+            val item=rows.getJSONObject(index)
+            item.put("done",!item.optBoolean("done"))
+            rpc("fh_save_character",JSONObject().put("p_token",token).put("p_character_id",characterId).put("p_revision",ch.getInt("revision")).put("p_data",payload))
+            runOnUiThread{pendingWrites--;if(pendingWrites==0)refresh();status="Saved to cloud"}
+        }
+    }
     private fun signOut(){
         token="";characterId="";data=JSONObject();store.edit().clear().apply();getSharedPreferences("combat_private",MODE_PRIVATE).edit().clear().apply()
         (getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager).cancel(77)
@@ -303,10 +322,26 @@ class NativeActivity:ComponentActivity(){
         }
     }
     @Composable private fun Perks(){
-        Column(Modifier.fillMaxSize(),verticalArrangement=Arrangement.Center,horizontalAlignment=Alignment.CenterHorizontally){
-            Text("PERKS & MASTERIES",color=Gold,fontWeight=FontWeight.Bold)
-            Spacer(Modifier.height(12.dp))
-            Text("Full native class-specific perk sheets are next in the migration. Your existing selections remain saved in Supabase.",textAlign=TextAlign.Center,color=Color.LightGray)
+        val sections=listOf("masteries","perks")
+        val section=sections[perkPage.coerceIn(0,1)]
+        val entries=data.optJSONArray(section)
+        val count=entries?.length()?:0
+        Column(Modifier.fillMaxSize(),verticalArrangement=Arrangement.SpaceBetween){
+            Text(if(section=="masteries")"MASTERIES" else "PERKS",color=Gold,fontWeight=FontWeight.Bold)
+            if(count==0)Text("No $section recorded for this character yet.",color=Color.LightGray)
+            else Column(Modifier.weight(1f),verticalArrangement=Arrangement.SpaceEvenly){
+                for(i in 0 until count.coerceAtMost(12)){
+                    val item=entries!!.getJSONObject(i)
+                    Row(Modifier.fillMaxWidth().background(Panel,RoundedCornerShape(10.dp)).padding(horizontal=8.dp,vertical=2.dp),verticalAlignment=Alignment.CenterVertically){
+                        Checkbox(checked=item.optBoolean("done"),onCheckedChange={toggleChecklist(section,i)})
+                        Text(item.optString("text","Item ${i+1}").ifBlank{"Item ${i+1}"},fontSize=12.sp,lineHeight=15.sp,maxLines=2)
+                    }
+                }
+            }
+            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){
+                OutlinedButton(onClick={perkPage=0},enabled=perkPage>0){Text("Masteries")}
+                OutlinedButton(onClick={perkPage=1},enabled=perkPage<1){Text("Perks")}
+            }
         }
     }
     @Composable private fun Settings(signOut:()->Unit){
