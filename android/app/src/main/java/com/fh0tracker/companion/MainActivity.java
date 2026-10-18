@@ -7,6 +7,8 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.Manifest;
 import android.content.pm.PackageManager;
+import android.provider.Settings;
+import android.app.AlertDialog;
 import android.app.DownloadManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -38,14 +40,13 @@ public class MainActivity extends Activity {
    long id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1);
    if (id != pendingDownload) return;
    DownloadManager manager = (DownloadManager)getSystemService(DOWNLOAD_SERVICE);
-   Uri uri = manager.getUriForDownloadedFile(id);
-   if (uri == null) { toast("Download failed. Try again."); return; }
+   android.database.Cursor cursor=manager.query(new DownloadManager.Query().setFilterById(id));
    try {
-    Intent install = new Intent(Intent.ACTION_VIEW);
-    install.setDataAndType(uri, "application/vnd.android.package-archive");
-    install.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-    startActivity(install);
-   } catch (Exception e) { toast("Open Downloads to install the update."); }
+    if(!cursor.moveToFirst() || cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))!=DownloadManager.STATUS_SUCCESSFUL){toast("Update download failed. Please retry.");return;}
+   }finally{cursor.close();}
+   Uri uri=manager.getUriForDownloadedFile(id);
+   if(uri==null){toast("Downloaded APK unavailable. Open Downloads.");return;}
+   promptInstall(uri);
   }
  };
  private void toast(String message) { runOnUiThread(() -> Toast.makeText(this,message,Toast.LENGTH_LONG).show()); }
@@ -64,7 +65,7 @@ public class MainActivity extends Activity {
   web.addJavascriptInterface(new UpdateBridge(), "FHAppUpdate");
   root.addView(web,new LinearLayout.LayoutParams(-1,0,1));
   setContentView(root);
-  if (Build.VERSION.SDK_INT >= 33) registerReceiver(downloaded,new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE),Context.RECEIVER_NOT_EXPORTED);
+  if (Build.VERSION.SDK_INT >= 33) registerReceiver(downloaded,new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE),Context.RECEIVER_EXPORTED);
   else registerReceiver(downloaded,new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE));
   if(Build.VERSION.SDK_INT>=26){NotificationManager nm=(NotificationManager)getSystemService(NOTIFICATION_SERVICE);NotificationChannel channel=new NotificationChannel("combat_v2","Frosthaven combat tracker",NotificationManager.IMPORTANCE_DEFAULT);channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);nm.createNotificationChannel(channel);}
   if(Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},42);
@@ -126,7 +127,7 @@ public class MainActivity extends Activity {
      runOnUiThread(() -> {
       new android.app.AlertDialog.Builder(this)
        .setTitle("FH0Tracker update available")
-       .setMessage("Installed build: "+installed+"\\nNew build: "+newest+"\\n\\nDownload and install now?")
+       .setMessage("Installed build: "+installed+"\nNew build: "+newest+"\n\nDownload and install now?")
        .setNegativeButton("Not now",null)
        .setPositiveButton("Update", (dialog,which) -> downloadApk(url))
        .show();
@@ -135,6 +136,22 @@ public class MainActivity extends Activity {
    }catch(Exception e){toast("Update check failed: "+e.getMessage());}
    finally{if(connection!=null)connection.disconnect();}
   }).start();
+ }
+ private void promptInstall(Uri uri) {
+  if(Build.VERSION.SDK_INT>=26&&!getPackageManager().canRequestPackageInstalls()){
+   new AlertDialog.Builder(this).setTitle("Allow FH0Tracker updates")
+    .setMessage("Android requires permission for FH0Tracker to install downloaded APK updates. Enable Allow from this source, then return to the app.")
+    .setNegativeButton("Cancel",null)
+    .setPositiveButton("Open settings",(d,w)->startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,Uri.parse("package:"+getPackageName()))))
+    .show();
+   return;
+  }
+  try{
+   Intent install=new Intent(Intent.ACTION_VIEW);
+   install.setDataAndType(uri,"application/vnd.android.package-archive");
+   install.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_ACTIVITY_NEW_TASK);
+   startActivity(install);
+  }catch(Exception e){toast("Installer couldn't open. Tap the completed APK in Downloads.");}
  }
  private void downloadApk(String url) {
   try {
