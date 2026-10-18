@@ -36,7 +36,7 @@ import androidx.compose.ui.unit.sp
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
-import kotlin.concurrent.thread
+import java.util.concurrent.Executors
 import kotlin.math.atan2
 import kotlin.math.PI
 
@@ -85,6 +85,7 @@ class NativeActivity:ComponentActivity(){
     private var suppliesPage by mutableIntStateOf(0)
     private var perkPage by mutableIntStateOf(0)
     private var pendingWrites=0
+    private val network=Executors.newSingleThreadExecutor()
     override fun onCreate(savedInstanceState:Bundle?){
         super.onCreate(savedInstanceState)
         window.statusBarColor=android.graphics.Color.rgb(16,24,32)
@@ -98,7 +99,8 @@ class NativeActivity:ComponentActivity(){
         }}
     }
     override fun onResume(){super.onResume();if(token.isNotEmpty())refresh()}
-    private fun work(block:()->Unit){thread {try{block()}catch(e:Exception){runOnUiThread{status=e.message?:"Network error";loading=false}}}}
+    override fun onDestroy(){network.shutdown();super.onDestroy()}
+    private fun work(block:()->Unit){network.execute {try{block()}catch(e:Exception){runOnUiThread{status=e.message?:"Network error";loading=false;pendingWrites=0;refresh()}}}}
     private fun login(code:String,pin:String){
         if(!Regex("[A-Z0-9]{4}").matches(code)||!Regex("[0-9]{4}").matches(pin)){status="Use a 4-character code and 4-digit PIN";return}
         loading=true
@@ -148,7 +150,9 @@ class NativeActivity:ComponentActivity(){
             var remote:JSONObject?=null
             for(i in 0 until characters.length())if(characters.getJSONObject(i).optString("id")==id){remote=characters.getJSONObject(i);break}
             val ch=remote?:throw IllegalStateException("Character missing")
-            val payload=ch.getJSONObject("data").put(field,after)
+            val payload=ch.getJSONObject("data")
+            val latest=payload.optInt(field,0)
+            payload.put(field,(latest+delta).coerceIn(0,upper))
             rpc("fh_save_character",JSONObject().put("p_token",token).put("p_character_id",id).put("p_revision",ch.getInt("revision")).put("p_data",payload))
             runOnUiThread{pendingWrites--;if(pendingWrites==0)refresh();status="Saved to cloud"}
         }
@@ -162,7 +166,8 @@ class NativeActivity:ComponentActivity(){
         work {
             val dashboard=rpc("fh_dashboard",JSONObject().put("p_token",token))
             val ch=dashboard.getJSONArray("characters").getJSONObject(0)
-            val payload=ch.getJSONObject("data");payload.getJSONObject("resources").put(name,newValue)
+            val payload=ch.getJSONObject("data");val remoteResources=payload.getJSONObject("resources")
+            remoteResources.put(name,(remoteResources.optInt(name)+delta).coerceAtLeast(0))
             rpc("fh_save_character",JSONObject().put("p_token",token).put("p_character_id",characterId).put("p_revision",ch.getInt("revision")).put("p_data",payload))
             runOnUiThread{pendingWrites--;if(pendingWrites==0)refresh();status="Saved to cloud"}
         }
