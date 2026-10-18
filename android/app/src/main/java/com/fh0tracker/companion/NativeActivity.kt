@@ -178,7 +178,8 @@ class NativeActivity:ComponentActivity(){
     private fun classSheet():JSONObject?=classReference.optJSONObject(data.optString("classId"))
     private fun resolveText(raw:String,sheet:JSONObject):String{
         val labels=sheet.optJSONObject("labels")?:JSONObject()
-        var result=Regex("%data\\.custom\\.fh\\.[^.]+\\.(\\d+)%").replace(raw){m->labels.optString(m.groupValues[1],"Class effect")}
+        var result=raw
+        repeat(3){result=Regex("%data\\\\.custom\\\\.fh\\\\.[^.]+\\\\.(\\\\d+)%").replace(result){m->labels.optString(m.groupValues[1],"Class effect")}}
         result=result.replace(Regex("<br\\s*/?>",RegexOption.IGNORE_CASE)," ").replace(Regex("<[^>]+>")," ")
         result=Regex("%game\\.([\\w.-]+)(?::([^%]*))?%").replace(result){m->
             val key=m.groupValues[1];val arg=m.groupValues[2]
