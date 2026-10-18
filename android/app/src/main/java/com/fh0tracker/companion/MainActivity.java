@@ -1,6 +1,12 @@
 package com.fh0tracker.companion;
 
 import android.app.Activity;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.Manifest;
+import android.content.pm.PackageManager;
 import android.app.DownloadManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -57,10 +63,28 @@ public class MainActivity extends Activity {
   setContentView(root);
   if (Build.VERSION.SDK_INT >= 33) registerReceiver(downloaded,new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE),Context.RECEIVER_NOT_EXPORTED);
   else registerReceiver(downloaded,new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE));
+  if(Build.VERSION.SDK_INT>=26){NotificationManager nm=(NotificationManager)getSystemService(NOTIFICATION_SERVICE);nm.createNotificationChannel(new NotificationChannel("combat","Frosthaven combat",NotificationManager.IMPORTANCE_LOW));}
+  if(Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},42);
   web.loadUrl("https://sabbott459-arch.github.io/FH0Tracker/cloud.html");
  }
  public class UpdateBridge {
   @JavascriptInterface public void check() { runOnUiThread(() -> checkUpdate()); }
+  @JavascriptInterface public void showStats(String name,int hp,int xp) { runOnUiThread(() -> publishStats(name,hp,xp)); }
+  @JavascriptInterface public void hideStats() { runOnUiThread(() -> ((NotificationManager)getSystemService(NOTIFICATION_SERVICE)).cancel(77)); }
+ }
+ private void publishStats(String name,int hp,int xp) {
+  if(Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)return;
+  Intent open=new Intent(this,MainActivity.class);
+  PendingIntent pending=PendingIntent.getActivity(this,0,open,PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);
+  Notification notification=new Notification.Builder(this,"combat")
+   .setSmallIcon(android.R.drawable.ic_menu_info_details)
+   .setContentTitle("FH0Tracker · "+name)
+   .setContentText("HP "+hp+"  ·  Scenario XP "+xp)
+   .setContentIntent(pending)
+   .setVisibility(Notification.VISIBILITY_PUBLIC)
+   .setOngoing(true)
+   .build();
+  ((NotificationManager)getSystemService(NOTIFICATION_SERVICE)).notify(77,notification);
  }
  private void checkUpdate() {
   toast("Checking GitHub releases...");
