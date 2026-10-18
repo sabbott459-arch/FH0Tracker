@@ -119,6 +119,7 @@ class NativeActivity:ComponentActivity(){
             campaign=result.optString("name","Campaign")
             loading=false;status="Cloud synced"
             store.edit().putString("characterId",characterId).apply()
+            getSharedPreferences("combat_private",MODE_PRIVATE).edit().putString("token",t).putString("id",characterId).putString("base",BASE).putString("key",KEY).putInt("maxHp",maxHp(data)).putLong("expires",System.currentTimeMillis()+4*60*60*1000L).apply()
             notifyCombat()
         }
     }
@@ -167,7 +168,7 @@ class NativeActivity:ComponentActivity(){
         }
     }
     private fun signOut(){
-        token="";characterId="";data=JSONObject();store.edit().clear().apply()
+        token="";characterId="";data=JSONObject();store.edit().clear().apply();getSharedPreferences("combat_private",MODE_PRIVATE).edit().clear().apply()
         (getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager).cancel(77)
         status="Signed out"
     }
