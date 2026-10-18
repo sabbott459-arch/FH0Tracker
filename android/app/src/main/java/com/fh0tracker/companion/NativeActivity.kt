@@ -431,7 +431,7 @@ class NativeActivity:ComponentActivity(){
             HorizontalDivider(color=Color.DarkGray)
             Text("Cloud sync: $status")
             Button(onClick={::refresh},modifier=Modifier.fillMaxWidth()){Text("Refresh character from cloud")}
-            Button(onClick={startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://github.com/sabbott459-arch/FH0Tracker/releases/latest")))},modifier=Modifier.fillMaxWidth()){Text("Get latest Android update")}
+            Button(onClick={startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://github.com/sabbott459-arch/FH0Tracker/releases")))},modifier=Modifier.fillMaxWidth()){Text("Get latest Android update")}
             Text("Native Android · No WebView",color=Color.LightGray,fontSize=12.sp)
             OutlinedButton(onClick=signOut,modifier=Modifier.fillMaxWidth()){Text("Sign out")}
         }
