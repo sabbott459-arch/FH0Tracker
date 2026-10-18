@@ -45,8 +45,7 @@ public class CombatReceiver extends BroadcastReceiver {
    .setCategory(Notification.CATEGORY_STATUS)
    .setOngoing(true)
    .setShowWhen(false)
-   .setOnlyAlertOnce(true)
-   .setSilent(true);
+   .setOnlyAlertOnce(true);
   RemoteViews expanded=new RemoteViews(context.getPackageName(),R.layout.notification_combat);
   expanded.setTextViewText(R.id.combat_title,"FH0Tracker · "+name);
   expanded.setTextViewText(R.id.hp_value,String.valueOf(hp));
