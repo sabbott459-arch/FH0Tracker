@@ -12,6 +12,8 @@ import android.os.Vibrator
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -181,7 +183,7 @@ class NativeActivity:ComponentActivity(){
     private fun resolveText(raw:String,sheet:JSONObject):String{
         val labels=sheet.optJSONObject("labels")?:JSONObject()
         var result=raw
-        repeat(3){result=Regex("%data\\\\.custom\\\\.fh\\\\.[^.]+\\\\.(\\\\d+)%").replace(result){m->labels.optString(m.groupValues[1],"Class effect")}}
+        repeat(3){result=Regex("%data\\.custom\\.fh\\.[^.]+\\.(\\d+)%").replace(result){m->labels.optString(m.groupValues[1],"Class effect")}}
         result=result.replace(Regex("<br\\s*/?>",RegexOption.IGNORE_CASE)," ").replace(Regex("<[^>]+>")," ")
         result=Regex("%game\\.([\\w.-]+)(?::([^%]*))?%").replace(result){m->
             val key=m.groupValues[1];val arg=m.groupValues[2]
@@ -216,14 +218,17 @@ class NativeActivity:ComponentActivity(){
         return "${card.optInt("count",1)}× "+(if(mod.optBoolean("rolling"))"Rolling " else "")+value+(if(extra.isNotEmpty())" · "+extra.joinToString(", ") else "")
     }
     private fun perkDescription(perk:JSONObject,sheet:JSONObject):String{
-        if(perk.optString("type")=="custom")return resolveText(perk.optString("custom"),sheet)
+        val type=perk.optString("type")
         val cards=perk.optJSONArray("cards")?:JSONArray()
         val items=(0 until cards.length()).map{cardDescription(cards.getJSONObject(it),sheet)}
-        return when(perk.optString("type")){
+        val base=when(type){
             "replace"->"Remove "+(items.firstOrNull()?:"modifier")+"; add "+items.drop(1).joinToString(" and ")
-            "remove"->"Remove "+items.joinToString(" and ")
-            else->"Add "+items.joinToString(" and ")
+            "remove"->if(items.isEmpty())"" else "Remove "+items.joinToString(" and ")
+            "add"->if(items.isEmpty())"" else "Add "+items.joinToString(" and ")
+            else->""
         }
+        val special=resolveText(perk.optString("custom"),sheet)
+        return listOf(base,special).filter{it.isNotBlank()}.joinToString(". ").ifBlank{"Perk details unavailable"}
     }
     private fun toggleChecklist(kind:String,index:Int,label:String){
         val copy=JSONObject(data.toString())
@@ -377,48 +382,57 @@ class NativeActivity:ComponentActivity(){
     }
     @Composable private fun Perks(){
         val sheet=classSheet()
-        val rows=sheet?.optJSONArray(perkSection)?:JSONArray()
-        val saved=data.optJSONArray(perkSection)?:JSONArray()
-        val descriptions=mutableListOf<Pair<Int,String>>()
-        if(perkSection=="masteries"){
-            for(i in 0 until rows.length())descriptions.add(i to resolveText(rows.optString(i),sheet!!))
-        }else{
-            var idx=0
-            for(i in 0 until rows.length()){
-                val perk=rows.getJSONObject(i)
-                val label=perkDescription(perk,sheet!!)
-                repeat(perk.optInt("count",1).coerceAtLeast(1)){descriptions.add(idx++ to label)}
+        val perks=sheet?.optJSONArray("perks")?:JSONArray()
+        val masteries=sheet?.optJSONArray("masteries")?:JSONArray()
+        val isPerks=perkSection=="perks"
+        val rows=mutableListOf<Triple<Int,String,Int>>()
+        if(isPerks){
+            var index=0
+            for(i in 0 until perks.length()){
+                val item=perks.getJSONObject(i)
+                val count=item.optInt("count",1).coerceAtLeast(1)
+                rows.add(Triple(index,perkDescription(item,sheet!!),count))
+                index+=count
             }
+        }else{
+            for(i in 0 until masteries.length())rows.add(Triple(i,resolveText(masteries.optString(i),sheet!!),1))
         }
-        val perPage=2
-        val pages=((descriptions.size+perPage-1)/perPage).coerceAtLeast(1)
-        val page=perkPage.coerceIn(0,pages-1)
-        Column(Modifier.fillMaxSize(),verticalArrangement=Arrangement.SpaceBetween){
+        val saved=data.optJSONArray(perkSection)?:JSONArray()
+        val completed=(0 until saved.length()).count{saved.optJSONObject(it)?.optBoolean("done")==true}
+        val total=rows.sumOf{it.third}
+        Column(Modifier.fillMaxSize()){
             Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){
-                listOf("masteries","perks").forEach { section->
+                listOf("perks","masteries").forEach{section->
                     Button(onClick={perkSection=section;perkPage=0},modifier=Modifier.weight(1f),
                         colors=ButtonDefaults.buttonColors(containerColor=if(perkSection==section)Gold else Panel,contentColor=if(perkSection==section)Night else Color.White)){
                         Text(section.uppercase(),fontSize=12.sp)
                     }
                 }
             }
-            if(descriptions.isEmpty())Text("No class reference available",color=Color.LightGray)
-            else Column(Modifier.weight(1f),verticalArrangement=Arrangement.SpaceEvenly){
-                descriptions.drop(page*perPage).take(perPage).forEach { (index,label)->
-                    Row(Modifier.fillMaxWidth().background(Panel,RoundedCornerShape(12.dp)).padding(9.dp),verticalAlignment=Alignment.CenterVertically){
-                        Checkbox(checked=saved.optJSONObject(index)?.optBoolean("done")?:false,
-                            onCheckedChange={toggleChecklist(perkSection,index,label)})
-                        Column(Modifier.weight(1f)){
-                            Text(if(perkSection=="perks")"PERK ${index+1}" else "MASTERY ${index+1}",color=Gold,fontSize=10.sp,fontWeight=FontWeight.Bold)
-                            Text(label,fontSize=13.sp,lineHeight=17.sp)
+            Text("$completed / $total completed",fontSize=12.sp,color=Gold,modifier=Modifier.padding(vertical=6.dp))
+            if(sheet==null)Text("Class reference not available for this character",color=Color.LightGray)
+            else Column(Modifier.weight(1f).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(8.dp)){
+                rows.forEachIndexed{rowNumber,(startIndex,description,count)->
+                    Column(Modifier.fillMaxWidth().background(Panel,RoundedCornerShape(12.dp)).padding(12.dp)){
+                        Text(if(isPerks)"PERK ${rowNumber+1}" else "MASTERY ${rowNumber+1}",
+                            color=Gold,fontSize=11.sp,fontWeight=FontWeight.Bold)
+                        Spacer(Modifier.height(5.dp))
+                        Text(description,fontSize=14.sp,lineHeight=20.sp,color=Color.White)
+                        Spacer(Modifier.height(8.dp))
+                        Row(horizontalArrangement=Arrangement.spacedBy(8.dp),verticalAlignment=Alignment.CenterVertically){
+                            repeat(count){occurrence->
+                                val index=startIndex+occurrence
+                                val checked=saved.optJSONObject(index)?.optBoolean("done")==true
+                                Row(verticalAlignment=Alignment.CenterVertically){
+                                    Checkbox(checked=checked,onCheckedChange={toggleChecklist(perkSection,index,description)})
+                                    if(count>1)Text("${occurrence+1}",fontSize=12.sp,color=Color.LightGray)
+                                    else Text(if(checked)"Earned" else "Not earned",fontSize=12.sp,color=Color.LightGray)
+                                }
+                            }
                         }
                     }
                 }
-            }
-            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){
-                OutlinedButton(onClick={perkPage=(page-1).coerceAtLeast(0)},enabled=page>0){Text("‹ Back")}
-                Text("${page+1} / $pages",color=Color.LightGray)
-                OutlinedButton(onClick={perkPage=(page+1).coerceAtMost(pages-1)},enabled=page<pages-1){Text("Next ›")}
+                Spacer(Modifier.height(8.dp))
             }
         }
     }
