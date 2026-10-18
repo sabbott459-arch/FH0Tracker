@@ -18,6 +18,7 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.webkit.WebResourceRequest;
 import android.webkit.JavascriptInterface;
 import android.widget.LinearLayout;
 import android.widget.Toast;
@@ -57,7 +58,9 @@ public class MainActivity extends Activity {
   web.setBackgroundColor(0xff101820);
   web.getSettings().setJavaScriptEnabled(true);
   web.getSettings().setDomStorageEnabled(true);
-  web.setWebViewClient(new WebViewClient());
+  web.setWebViewClient(new WebViewClient(){
+   @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest request){return !"sabbott459-arch.github.io".equals(request.getUrl().getHost());}
+  });
   web.addJavascriptInterface(new UpdateBridge(), "FHAppUpdate");
   root.addView(web,new LinearLayout.LayoutParams(-1,0,1));
   setContentView(root);
@@ -70,25 +73,15 @@ public class MainActivity extends Activity {
  public class UpdateBridge {
   @JavascriptInterface public void check() { runOnUiThread(() -> checkUpdate()); }
   @JavascriptInterface public void showStats(String name,int hp,int xp) { runOnUiThread(() -> publishStats(name,hp,xp)); }
-  @JavascriptInterface public void hideStats() { runOnUiThread(() -> ((NotificationManager)getSystemService(NOTIFICATION_SERVICE)).cancel(77)); }
+  @JavascriptInterface public void configureCombat(String token,String id,String base,String key,int maxHp) {
+   if(!base.equals("https://aowmwqnrzxxgqubhxopc.supabase.co")||token.length()>512||id.length()>100)return;
+   getSharedPreferences("combat_private",MODE_PRIVATE).edit().putString("token",token).putString("id",id).putString("base",base).putString("key",key).putInt("maxHp",maxHp).putLong("expires",System.currentTimeMillis()+4*60*60*1000L).apply();
+  }
+  @JavascriptInterface public void hideStats() { getSharedPreferences("combat_private",MODE_PRIVATE).edit().clear().apply();runOnUiThread(() -> ((NotificationManager)getSystemService(NOTIFICATION_SERVICE)).cancel(77)); }
  }
  private void publishStats(String name,int hp,int xp) {
   if(Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)return;
-  Intent open=new Intent(this,MainActivity.class);
-  PendingIntent pending=PendingIntent.getActivity(this,0,open,PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);
-  Notification notification=new Notification.Builder(this,"combat_v2")
-   .setSmallIcon(android.R.drawable.ic_menu_info_details)
-   .setContentTitle("FH0Tracker · "+name)
-   .setContentText("HP "+hp+"  ·  Scenario XP "+xp)
-   .setStyle(new Notification.BigTextStyle().bigText("HP: "+hp+"     Scenario XP: "+xp))
-   .setCategory(Notification.CATEGORY_STATUS)
-   .setShowWhen(false)
-   .setPriority(Notification.PRIORITY_DEFAULT)
-   .setContentIntent(pending)
-   .setVisibility(Notification.VISIBILITY_PUBLIC)
-   .setOngoing(true)
-   .build();
-  ((NotificationManager)getSystemService(NOTIFICATION_SERVICE)).notify(77,notification);
+  CombatReceiver.display(this,name,hp,xp);
  }
  private void checkUpdate() {
   toast("Checking GitHub releases...");
