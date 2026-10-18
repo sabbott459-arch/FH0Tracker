@@ -1,5 +1,7 @@
 package com.fh0tracker.companion
 
+import android.content.Intent
+import android.net.Uri
 import android.Manifest
 import android.app.Activity
 import android.content.Context
@@ -429,7 +431,8 @@ class NativeActivity:ComponentActivity(){
             HorizontalDivider(color=Color.DarkGray)
             Text("Cloud sync: $status")
             Button(onClick={::refresh},modifier=Modifier.fillMaxWidth()){Text("Refresh character from cloud")}
-            Text("Native Android preview · No WebView",color=Color.LightGray,fontSize=12.sp)
+            Button(onClick={startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://github.com/sabbott459-arch/FH0Tracker/releases/latest")))},modifier=Modifier.fillMaxWidth()){Text("Get latest Android update")}
+            Text("Native Android · No WebView",color=Color.LightGray,fontSize=12.sp)
             OutlinedButton(onClick=signOut,modifier=Modifier.fillMaxWidth()){Text("Sign out")}
         }
     }
